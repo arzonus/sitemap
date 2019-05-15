@@ -2,6 +2,7 @@ package sitemap
 
 import (
 	"context"
+	"fmt"
 	"github.com/arzonus/sitemap/pkg/sitemap/node"
 	"github.com/arzonus/sitemap/pkg/sitemap/worker"
 	"log"
@@ -120,6 +121,7 @@ func (w *Walker) run(ctx context.Context) error {
 	<-done
 	log.Print("finished")
 
+	fmt.Println(node.String())
 	if node.Error() != nil {
 		return nil
 	}

@@ -2,6 +2,7 @@ package node
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/url"
 	"sync"
@@ -30,7 +31,7 @@ type Node struct {
 	sxmx     sync.Mutex
 	isClosed bool
 
-	ii int
+	i int
 }
 
 func NewNode(
@@ -105,7 +106,7 @@ func (n *Node) SetURLs(urls []*url.URL) {
 func (n *Node) SetResult(result *Result) {
 	n.result = result
 	if result.Error != nil {
-		n.close("ERROR RESULT")
+		n.close()
 		return
 	}
 	n.setNodes(result.URLs)
@@ -122,12 +123,12 @@ func (n *Node) setNodes(urls []*url.URL) {
 
 }
 
-func (n *Node) close(str string) {
+func (n *Node) close() {
 	n.mx.Lock()
 	defer n.mx.Unlock()
 	defer func() {
 		if p := recover(); p != nil {
-			log.Printf("PANIC: id %d, node count %d, parent %d, parent node count %d, %d", n.id, len(n.nodes), n.parent.id, len(n.parent.nodes), n.parent.ii)
+			log.Println("PANIC:", n.id, n.parent.id)
 			panic(p)
 		}
 	}()
@@ -135,63 +136,54 @@ func (n *Node) close(str string) {
 	if n.isClosed {
 		return
 	}
-
 	n.isClosed = true
-	log.Printf("try to close chan, id %d, node count %d, parent %d, parent node count %d, i %d, , %d", n.id, len(n.nodes), n.parent.id, len(n.parent.nodes), n.ii, n.size)
+
+	if n.i < n.size {
+		for range n.nodeChan {
+			n.i++
+			if n.i == n.size {
+				break
+			}
+		}
+	}
+
 	close(n.nodeChan)
-	log.Printf("close chan, try to send, id %d, node count %d, parent %d, parent node count %d, i %d", n.id, len(n.nodes), n.parent.id, len(n.parent.nodes), n.ii)
 	n.doneChan <- struct{}{}
-	log.Printf("success closed id %d, node count %d, parent %d, parent node count %d", n.id, len(n.nodes), n.parent.id, len(n.parent.nodes))
-
-}
-
-func (n Node) sz() int {
-	log.Printf("sz is:%d %d", n.id, n.size)
-	return n.size
 }
 
 func (n *Node) wait() {
+	defer n.close()
 
-	var i int
 	for {
 		select {
 		case <-n.ctx.Done():
-			log.Printf("ctx done: %d %d %d", n.id, len(n.nodes), n.size)
-			if n.sz() == 0 {
-				log.Printf("0: ctx done: %d %d %d %d", n.id, len(n.nodes), n.size, n.sz())
-				log.Printf("0: ctx done: %#v", n)
-				n.close("ctx: 0")
-				return
-			}
-
-			for range n.nodeChan {
-				log.Printf("loop: ctx done: %d %d", n.id, len(n.nodes))
-				i++
-				if i == n.size {
-					log.Printf("i: ctx done: %d, i: %d, count: %d", n.id, i, len(n.nodes))
-					n.close("i: ctx")
-					return
-				}
-			}
-
-			log.Printf("NODE CHAN CLOSED id %d, node count %d, parent %d, parent node count %d, i %d", n.id, len(n.nodes), n.parent.id, len(n.parent.nodes), i)
-
 			return
 
 		case _, ok := <-n.nodeChan:
-
 			if !ok {
-				n.close("ok")
 				return
 			}
 
-			i++
-			log.Printf("node chan: %d, i: %d, count: %d", n.id, i, len(n.nodes))
-			if i == n.size {
-				log.Printf("success: node chan: %d, i: %d, count: %d", n.id, i, len(n.nodes))
-				n.close("success")
+			n.i++
+			if n.i == n.size {
 				return
 			}
 		}
 	}
+}
+
+func (n Node) String() string {
+	if n.result != nil {
+		if n.result.Error != nil {
+			return fmt.Sprintf("%s %s err: %s", n.Prefix(), n.url, n.result.Error)
+		}
+	} else {
+		return fmt.Sprintf("%s %s wasn't handled", n.Prefix(), n.url)
+	}
+
+	var str = fmt.Sprintf("%s %s", n.Prefix(), n.url)
+	for i := range n.nodes {
+		str += "\n" + n.nodes[i].String()
+	}
+	return str
 }
