@@ -42,7 +42,7 @@ var ErrDepthExceeded = fmt.Errorf("err depth exceeded")
 
 func (w Crawler) work(node *node.Node, out chan<- *CrawlerResult) {
 	if node.Depth() > w.maxDepth {
-		log.Println(node.Prefix(), "got depth exceeded: ", node.URL())
+		//log.Println(node.Prefix(), "got depth exceeded: ", node.URL())
 		node.SetError(ErrDepthExceeded)
 		return
 	}
@@ -56,14 +56,21 @@ func (w Crawler) work(node *node.Node, out chan<- *CrawlerResult) {
 
 	resp, err := w.client.Do(req)
 	if err != nil {
-		log.Println(node.Prefix(), "got err: ", err)
+		//log.Println(node.Prefix(), "got err: ", err)
 		node.SetError(err)
 		return
 	}
-	log.Println(node.Prefix(), "got body: ", node.URL(), " ", node.Depth())
 
-	out <- &CrawlerResult{
-		node: node,
-		r:    resp.Body,
+	select {
+	case <-w.ctx.Done():
+		node.SetError(fmt.Errorf("context exceeded"))
+		return
+	default:
+		//log.Println(node.Prefix(), "got body: ", node.URL(), " ", node.Depth())
+
+		out <- &CrawlerResult{
+			node: node,
+			r:    resp.Body,
+		}
 	}
 }

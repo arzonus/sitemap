@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/arzonus/sitemap/pkg/sitemap/node"
 	"golang.org/x/net/html"
+	"log"
 	"net/url"
 )
 
@@ -19,6 +20,7 @@ func (w Parser) Work(in <-chan *CrawlerResult, out chan<- *node.Node) {
 	for {
 		select {
 		case <-w.ctx.Done():
+			log.Print("parser closed")
 			return
 		case result, ok := <-in:
 			if !ok {
