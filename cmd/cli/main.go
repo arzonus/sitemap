@@ -8,9 +8,9 @@ import (
 
 func main() {
 	if err := sitemap.NewWalker(
-		"https://example.com",
-		sitemap.MaxDepthOption(5),
-		sitemap.TimeoutOption(10*time.Second),
+		"https://vk.com",
+		sitemap.MaxDepthOption(10),
+		sitemap.TimeoutOption(120*time.Second),
 	).Run(); err != nil {
 		log.Fatal(err)
 	}

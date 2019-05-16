@@ -113,6 +113,13 @@ func (n *Node) SetResult(result *Result) {
 }
 
 func (n *Node) setNodes(urls []*url.URL) {
+	n.mx.Lock()
+	defer n.mx.Unlock()
+	if n.isClosed {
+		log.Println("IS CLOSED!")
+		return
+	}
+
 	n.nodes = make([]*Node, len(urls))
 	n.size = len(urls)
 	log.Printf("set urls id %d, size %d, node count %d", n.id, n.size, len(n.nodes))
