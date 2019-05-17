@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/arzonus/sitemap/pkg/sitemap/node"
 	"golang.org/x/net/html"
+	"io"
 	"log"
 	"net/url"
 )
@@ -32,17 +33,41 @@ func (w Parser) Work(in <-chan *CrawlerResult, out chan<- *node.Node) {
 }
 
 func (w Parser) work(r *CrawlerResult, out chan<- *node.Node) {
-	n, err := html.Parse(r.r)
+
+	urls, err := w.parse(r.r)
+	r.node.SetResult(&node.Result{
+		URLs:  urls,
+		Error: err,
+	})
+
+	go func() {
+		for i := 0; i < len(r.node.Nodes()); i++ {
+			select {
+			case <-w.ctx.Done():
+				return
+			default:
+				out <- r.node.Nodes()[i]
+			}
+		}
+	}()
+}
+
+// parse provides method for getting urls from html site
+func (w Parser) parse(r io.Reader) ([]*url.URL, error) {
+	n, err := html.Parse(r)
 	if err != nil {
-		r.node.SetError(err)
-		return
+		return nil, err
 	}
 
-	var urls []*url.URL
-	var f func(*html.Node)
+	var (
+		f       func(*html.Node)
+		urls    []*url.URL
+		baseUrl string
+	)
 
 	f = func(n *html.Node) {
-		if n.Type == html.ElementNode && n.Data == "a" {
+		// searching base element
+		if n.Type == html.ElementNode && n.Data == "base" {
 			for _, attr := range n.Attr {
 				if attr.Key == "href" {
 					u, err := url.Parse(attr.Val)
@@ -50,6 +75,24 @@ func (w Parser) work(r *CrawlerResult, out chan<- *node.Node) {
 						return
 					}
 
+					baseUrl = attr.Val
+				}
+			}
+		}
+		// searching a element
+		if n.Type == html.ElementNode && n.Data == "a" {
+			for _, attr := range n.Attr {
+				if attr.Key == "href" {
+					var val = attr.Val
+
+					if baseUrl != "" {
+						val = baseUrl + val
+					}
+
+					u, err := url.Parse(val)
+					if err != nil || !u.IsAbs() {
+						return
+					}
 					urls = append(urls, u)
 					return
 				}
@@ -62,16 +105,5 @@ func (w Parser) work(r *CrawlerResult, out chan<- *node.Node) {
 	}
 	f(n)
 
-	r.node.SetURLs(urls)
-
-	go func() {
-		for i := 0; i < len(r.node.Nodes()); i++ {
-			select {
-			case <-w.ctx.Done():
-				return
-			default:
-				out <- r.node.Nodes()[i]
-			}
-		}
-	}()
+	return urls, nil
 }
