@@ -78,6 +78,10 @@ func (n Node) Nodes() []*Node {
 	return n.nodes
 }
 
+func (n Node) Parent() *Node {
+	return n.parent
+}
+
 func (n Node) Prefix() string {
 	var str string
 	for i := 0; i < n.depth; i++ {

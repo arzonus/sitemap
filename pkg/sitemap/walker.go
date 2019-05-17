@@ -13,7 +13,6 @@ import (
 
 type Walker struct {
 	option
-	url string
 }
 
 type option struct {
@@ -57,9 +56,8 @@ func HTTPClientOption(client *http.Client) Option {
 	}
 }
 
-func NewWalker(url string, options ...Option) *Walker {
+func NewWalker(options ...Option) *Walker {
 	w := &Walker{
-		url: url,
 		option: option{
 			maxDepth:    5,
 			outputFile:  "sitemap.out",
@@ -78,51 +76,46 @@ func NewWalker(url string, options ...Option) *Walker {
 	return w
 }
 
-func (w *Walker) Run() error {
+func (w *Walker) Walk(urlRaw string) (*node.Node, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), w.timeout)
 	defer cancel()
-	return w.run(ctx)
+	return w.walk(ctx, urlRaw)
 }
 
-func (w *Walker) RunContext(ctx context.Context) error {
-	return w.run(ctx)
+func (w *Walker) WalkContext(ctx context.Context, urlRaw string) (*node.Node, error) {
+	return w.walk(ctx, urlRaw)
 }
 
-func (w *Walker) run(ctx context.Context) error {
+func (w *Walker) walk(ctx context.Context, urlRaw string) (*node.Node, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	url, err := url.Parse(w.url)
+	u, err := url.Parse(urlRaw)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	log.Print("try to fetch from ", url)
 
-	crawler := worker.NewCrawler(w.client, ctx, w.maxDepth)
-	parser := worker.NewParser(ctx)
+	var (
+		crawler = worker.NewCrawler(w.client, ctx, w.maxDepth)
+		parser  = worker.NewParser(ctx)
+		nodes   = make(chan *node.Node, w.workerCount)
+		results = make(chan *worker.CrawlerResult, w.workerCount*5)
+		done    = make(chan struct{})
+	)
 
-	nodes := make(chan *node.Node, w.workerCount)
-	results := make(chan *worker.CrawlerResult, w.workerCount*5)
-	done := make(chan struct{})
-
-	log.Print("create workers ", w.workerCount)
 	for i := 0; i < w.workerCount; i++ {
 		go crawler.Work(nodes, results)
 		go parser.Work(results, nodes)
 	}
-	log.Print("create new node")
-	log.Println(len(nodes), cap(nodes))
-	node := node.NewNode(ctx, url, done)
-	log.Print("send first node")
-	nodes <- node
-	log.Println(len(nodes), cap(nodes))
-	log.Print("send to channel")
+
+	n := node.NewNode(ctx, u, done)
+	nodes <- n
 	<-done
+
 	log.Print("finished")
 
-	log.Println(node.String())
-	if node.Error() != nil {
-		return nil
+	if n.Error() != nil {
+		return n, err
 	}
-	return nil
+	return n, nil
 }

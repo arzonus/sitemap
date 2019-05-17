@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"github.com/arzonus/sitemap/pkg/sitemap"
+	"io/ioutil"
 	"log"
 	"os"
 	"runtime"
@@ -23,13 +24,17 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := sitemap.NewWalker(
-		os.Args[1],
+	w := sitemap.NewWalker(
 		sitemap.MaxDepthOption(*maxDepth),
 		sitemap.WorkerCountOption(*parallel),
 		sitemap.TimeoutOption(time.Duration(*timeout)*time.Second),
-	).Run(); err != nil {
+	)
+
+	node, err := w.Walk(os.Args[1])
+	if err != nil {
 		log.Print(err)
 		os.Exit(1)
 	}
+	log.Print(node.String())
+	ioutil.WriteFile(*outputFilePath, []byte(node.String()), os.ModePerm)
 }
