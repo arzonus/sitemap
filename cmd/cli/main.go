@@ -14,12 +14,12 @@ var (
 	parallel       = flag.Int("parallel", runtime.NumCPU(), "count of parallel requests to sites")
 	outputFilePath = flag.String("output-file", "sitemap.out", "filepath to output file")
 	maxDepth       = flag.Int("max-depth", 5, "max depth of handling sites")
-	timeout        = flag.Int("timeout", 30, "global timeout")
+	timeout        = flag.Int("timeout", 30, "timeout")
 )
 
 func main() {
 	flag.Parse()
-	if os.Args[1] == "" {
+	if len(flag.Args()) == 0 || len(flag.Args()) != 0 && flag.Args()[0] == "" {
 		log.Print("url is empty")
 		os.Exit(1)
 	}
@@ -30,11 +30,11 @@ func main() {
 		sitemap.TimeoutOption(time.Duration(*timeout)*time.Second),
 	)
 
-	node, err := w.Walk(os.Args[1])
+	n, err := w.Walk(flag.Args()[0])
 	if err != nil {
 		log.Print(err)
 		os.Exit(1)
 	}
-	log.Print(node.String())
-	ioutil.WriteFile(*outputFilePath, []byte(node.String()), os.ModePerm)
+	log.Print("\n", n.Tree())
+	ioutil.WriteFile(*outputFilePath, n.TreeBytes(), os.ModePerm)
 }

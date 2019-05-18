@@ -18,19 +18,12 @@ type Walker struct {
 type option struct {
 	workerCount int
 	maxDepth    int
-	outputFile  string
 	timeout     time.Duration
 	ctx         context.Context
 	client      *http.Client
 }
 
 type Option func(option *option)
-
-func OutputFileOption(path string) Option {
-	return func(option *option) {
-		option.outputFile = path
-	}
-}
 
 func WorkerCountOption(count int) Option {
 	return func(option *option) {
@@ -60,7 +53,6 @@ func NewWalker(options ...Option) *Walker {
 	w := &Walker{
 		option: option{
 			maxDepth:    5,
-			outputFile:  "sitemap.out",
 			timeout:     15 * time.Second,
 			workerCount: runtime.NumCPU(),
 			client: &http.Client{
@@ -102,6 +94,9 @@ func (w *Walker) walk(ctx context.Context, urlRaw string) (*node.Node, error) {
 		results = make(chan *worker.CrawlerResult, w.workerCount*5)
 		done    = make(chan struct{})
 	)
+	defer close(nodes)
+	defer close(results)
+	defer close(done)
 
 	for i := 0; i < w.workerCount; i++ {
 		go crawler.Work(nodes, results)

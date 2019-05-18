@@ -2,8 +2,6 @@ package node
 
 import (
 	"context"
-	"fmt"
-	"log"
 	"net/url"
 	"sync"
 	"sync/atomic"
@@ -39,7 +37,7 @@ func NewNode(
 	url *url.URL,
 	doneChan chan<- struct{},
 ) *Node {
-	return newNode(ctx, url, doneChan, 0, &Node{})
+	return newNode(ctx, url, doneChan, 0, nil)
 }
 
 func newNode(
@@ -82,14 +80,6 @@ func (n Node) Parent() *Node {
 	return n.parent
 }
 
-func (n Node) Prefix() string {
-	var str string
-	for i := 0; i < n.depth; i++ {
-		str += "*"
-	}
-	return str
-}
-
 type Result struct {
 	Error error
 	URLs  []*url.URL
@@ -120,16 +110,14 @@ func (n *Node) setNodes(urls []*url.URL) {
 	n.mx.Lock()
 	defer n.mx.Unlock()
 	if n.isClosed {
-		log.Println("IS CLOSED!")
 		return
 	}
 
 	n.nodes = make([]*Node, len(urls))
 	n.size = len(urls)
-	log.Printf("set urls id %d, size %d, node count %d", n.id, n.size, len(n.nodes))
 
-	for i, url := range urls {
-		n.nodes[i] = newNode(n.ctx, url, n.nodeChan, n.depth+1, n)
+	for i, u := range urls {
+		n.nodes[i] = newNode(n.ctx, u, n.nodeChan, n.depth+1, n)
 	}
 
 }
@@ -137,12 +125,6 @@ func (n *Node) setNodes(urls []*url.URL) {
 func (n *Node) close() {
 	n.mx.Lock()
 	defer n.mx.Unlock()
-	defer func() {
-		if p := recover(); p != nil {
-			log.Println("PANIC:", n.id, n.parent.id)
-			panic(p)
-		}
-	}()
 
 	if n.isClosed {
 		return
@@ -184,17 +166,5 @@ func (n *Node) wait() {
 }
 
 func (n Node) String() string {
-	if n.result != nil {
-		if n.result.Error != nil {
-			return fmt.Sprintf("%s %s err: %s", n.Prefix(), n.url, n.result.Error)
-		}
-	} else {
-		return fmt.Sprintf("%s %s wasn't handled", n.Prefix(), n.url)
-	}
-
-	var str = fmt.Sprintf("%s %s", n.Prefix(), n.url)
-	for i := range n.nodes {
-		str += "\n" + n.nodes[i].String()
-	}
-	return str
+	return n.url.String()
 }

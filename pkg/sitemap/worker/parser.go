@@ -5,7 +5,6 @@ import (
 	"github.com/arzonus/sitemap/pkg/sitemap/node"
 	"golang.org/x/net/html"
 	"io"
-	"log"
 	"net/url"
 )
 
@@ -21,7 +20,6 @@ func (w Parser) Work(in <-chan *CrawlerResult, out chan<- *node.Node) {
 	for {
 		select {
 		case <-w.ctx.Done():
-			log.Print("parser closed")
 			return
 		case result, ok := <-in:
 			if !ok {
@@ -71,7 +69,7 @@ func (w Parser) parse(r io.Reader) ([]*url.URL, error) {
 			for _, attr := range n.Attr {
 				if attr.Key == "href" {
 					u, err := url.Parse(attr.Val)
-					if err != nil || !u.IsAbs() {
+					if err != nil || !(u.IsAbs() && u.Hostname() != "") {
 						return
 					}
 
@@ -90,7 +88,7 @@ func (w Parser) parse(r io.Reader) ([]*url.URL, error) {
 					}
 
 					u, err := url.Parse(val)
-					if err != nil || !u.IsAbs() {
+					if err != nil || !(u.IsAbs() && u.Hostname() != "") {
 						return
 					}
 					urls = append(urls, u)

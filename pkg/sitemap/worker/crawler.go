@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/arzonus/sitemap/pkg/sitemap/node"
 	"io"
-	"log"
 	"net/http"
 )
 
@@ -38,11 +37,10 @@ func (w Crawler) Work(in <-chan *node.Node, out chan<- *CrawlerResult) {
 	}
 }
 
-var ErrDepthExceeded = fmt.Errorf("err depth exceeded")
+var ErrDepthExceeded = fmt.Errorf("depth exceeded")
 
 func (w Crawler) work(node *node.Node, out chan<- *CrawlerResult) {
 	if node.Depth() > w.maxDepth {
-		//log.Println(node.Prefix(), "got depth exceeded: ", node.URL())
 		node.SetError(ErrDepthExceeded)
 		return
 	}
@@ -52,11 +50,8 @@ func (w Crawler) work(node *node.Node, out chan<- *CrawlerResult) {
 		URL:    node.URL(),
 	}
 
-	log.Println(node.Prefix(), "try to request url: ", node.URL(), " ", node.Depth())
-
 	resp, err := w.client.Do(req)
 	if err != nil {
-		//log.Println(node.Prefix(), "got err: ", err)
 		node.SetError(err)
 		return
 	}
@@ -66,8 +61,6 @@ func (w Crawler) work(node *node.Node, out chan<- *CrawlerResult) {
 		node.SetError(fmt.Errorf("context exceeded"))
 		return
 	default:
-		//log.Println(node.Prefix(), "got body: ", node.URL(), " ", node.Depth())
-
 		out <- &CrawlerResult{
 			node: node,
 			r:    resp.Body,
