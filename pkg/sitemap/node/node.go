@@ -4,32 +4,22 @@ import (
 	"context"
 	"net/url"
 	"sync"
-	"sync/atomic"
 )
 
-var iterator int64
-
 type Node struct {
-	id int64
-
 	parent *Node
 
+	i        int
+	mx       sync.Mutex
+	url      *url.URL
+	ctx      context.Context
+	size     int
+	depth    int
+	nodes    []*Node
+	result   *Result
+	isClosed bool
 	doneChan chan<- struct{}
 	nodeChan chan struct{}
-
-	ctx   context.Context
-	depth int
-	url   *url.URL
-
-	nodes  []*Node
-	size   int
-	result *Result
-
-	mx       sync.Mutex
-	sxmx     sync.Mutex
-	isClosed bool
-
-	i int
 }
 
 func NewNode(
@@ -54,7 +44,6 @@ func newNode(
 		depth:    depth,
 		nodeChan: make(chan struct{}),
 		parent:   parent,
-		id:       atomic.AddInt64(&iterator, 1),
 	}
 	go node.wait()
 	return node

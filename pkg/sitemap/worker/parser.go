@@ -16,18 +16,25 @@ func NewParser(ctx context.Context) *Parser {
 	return &Parser{ctx: ctx}
 }
 
-func (w Parser) Work(in <-chan *CrawlerResult, out chan<- *node.Node) {
-	for {
-		select {
-		case <-w.ctx.Done():
-			return
-		case result, ok := <-in:
-			if !ok {
+func (w *Parser) Work(in <-chan *CrawlerResult) <-chan *node.Node {
+	var out = make(chan *node.Node)
+
+	go func() {
+		defer close(out)
+		for {
+			select {
+			case <-w.ctx.Done():
 				return
+			case result, ok := <-in:
+				if !ok {
+					return
+				}
+				w.work(result, out)
 			}
-			w.work(result, out)
 		}
-	}
+	}()
+
+	return out
 }
 
 func (w Parser) work(r *CrawlerResult, out chan<- *node.Node) {
@@ -38,16 +45,14 @@ func (w Parser) work(r *CrawlerResult, out chan<- *node.Node) {
 		Error: err,
 	})
 
-	go func() {
-		for i := 0; i < len(r.node.Nodes()); i++ {
-			select {
-			case <-w.ctx.Done():
-				return
-			default:
-				out <- r.node.Nodes()[i]
-			}
+	for i := 0; i < len(r.node.Nodes()); i++ {
+		select {
+		case <-w.ctx.Done():
+			return
+		default:
+			out <- r.node.Nodes()[i]
 		}
-	}()
+	}
 }
 
 // parse provides method for getting urls from html site

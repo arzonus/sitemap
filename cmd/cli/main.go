@@ -30,11 +30,28 @@ func main() {
 		sitemap.TimeoutOption(time.Duration(*timeout)*time.Second),
 	)
 
+	log.Println("**********************")
+	log.Printf("* url      %s", flag.Args()[0])
+	log.Printf("* file     %s", *outputFilePath)
+	log.Printf("* depth    %d", *maxDepth)
+	log.Printf("* timeout  %ds", *timeout)
+	log.Printf("* parallel %d", *parallel)
+	log.Println("**********************")
+
+	start := time.Now()
+
 	n, err := w.Walk(flag.Args()[0])
 	if err != nil {
 		log.Print(err)
 		os.Exit(1)
 	}
+
 	log.Print("\n", n.Tree())
-	ioutil.WriteFile(*outputFilePath, n.TreeBytes(), os.ModePerm)
+	log.Printf("time: %s", time.Since(start))
+
+	if err := ioutil.WriteFile(*outputFilePath, n.TreeBytes(), os.ModePerm); err != nil {
+		log.Print(err)
+		os.Exit(1)
+	}
+	log.Printf("result saved to file %s", *outputFilePath)
 }

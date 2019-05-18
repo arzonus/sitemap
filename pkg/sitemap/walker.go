@@ -4,10 +4,10 @@ import (
 	"context"
 	"github.com/arzonus/sitemap/pkg/sitemap/node"
 	"github.com/arzonus/sitemap/pkg/sitemap/worker"
-	"log"
 	"net/http"
 	"net/url"
 	"runtime"
+	"sync"
 	"time"
 )
 
@@ -21,6 +21,7 @@ type option struct {
 	timeout     time.Duration
 	ctx         context.Context
 	client      *http.Client
+	bufCount    int
 }
 
 type Option func(option *option)
@@ -58,6 +59,7 @@ func NewWalker(options ...Option) *Walker {
 			client: &http.Client{
 				Timeout: 5 * time.Second,
 			},
+			bufCount: 1000,
 		},
 	}
 
@@ -94,23 +96,63 @@ func (w *Walker) walk(ctx context.Context, urlRaw string) (*node.Node, error) {
 		results = make(chan *worker.CrawlerResult, w.workerCount*5)
 		done    = make(chan struct{})
 	)
-	defer close(nodes)
-	defer close(results)
 	defer close(done)
 
+	var (
+		nodeChan   = make([]<-chan *node.Node, w.workerCount)
+		resultChan = make([]<-chan *worker.CrawlerResult, w.workerCount)
+	)
+
 	for i := 0; i < w.workerCount; i++ {
-		go crawler.Work(nodes, results)
-		go parser.Work(results, nodes)
+		resultChan[i] = crawler.Work(nodes)
+		nodeChan[i] = parser.Work(results)
 	}
+
+	mergeNodes(nodeChan, nodes)
+	mergeResults(resultChan, results)
 
 	n := node.NewNode(ctx, u, done)
 	nodes <- n
 	<-done
 
-	log.Print("finished")
-
 	if n.Error() != nil {
 		return n, err
 	}
 	return n, nil
+}
+
+func mergeNodes(cs []<-chan *node.Node, out chan<- *node.Node) {
+	var wg sync.WaitGroup
+	output := func(c <-chan *node.Node) {
+		for n := range c {
+			out <- n
+		}
+		wg.Done()
+	}
+	wg.Add(len(cs))
+	for _, c := range cs {
+		go output(c)
+	}
+	go func() {
+		wg.Wait()
+		close(out)
+	}()
+}
+
+func mergeResults(cs []<-chan *worker.CrawlerResult, out chan<- *worker.CrawlerResult) {
+	var wg sync.WaitGroup
+	output := func(c <-chan *worker.CrawlerResult) {
+		for n := range c {
+			out <- n
+		}
+		wg.Done()
+	}
+	wg.Add(len(cs))
+	for _, c := range cs {
+		go output(c)
+	}
+	go func() {
+		wg.Wait()
+		close(out)
+	}()
 }

@@ -23,21 +23,31 @@ type CrawlerResult struct {
 	r    io.Reader
 }
 
-func (w Crawler) Work(in <-chan *node.Node, out chan<- *CrawlerResult) {
-	for {
-		select {
-		case <-w.ctx.Done():
-			return
-		case n, ok := <-in:
-			if !ok {
+func (w Crawler) Work(in <-chan *node.Node) <-chan *CrawlerResult {
+	var out = make(chan *CrawlerResult)
+
+	go func() {
+		defer close(out)
+		for {
+			select {
+			case <-w.ctx.Done():
 				return
+			case n, ok := <-in:
+				if !ok {
+					return
+				}
+				w.work(n, out)
 			}
-			w.work(n, out)
 		}
-	}
+	}()
+
+	return out
 }
 
-var ErrDepthExceeded = fmt.Errorf("depth exceeded")
+var (
+	ErrDepthExceeded   = fmt.Errorf("depth exceeded")
+	ErrContextCanceled = fmt.Errorf("context canceled")
+)
 
 func (w Crawler) work(node *node.Node, out chan<- *CrawlerResult) {
 	if node.Depth() > w.maxDepth {
@@ -58,7 +68,7 @@ func (w Crawler) work(node *node.Node, out chan<- *CrawlerResult) {
 
 	select {
 	case <-w.ctx.Done():
-		node.SetError(fmt.Errorf("context exceeded"))
+		node.SetError(ErrContextCanceled)
 		return
 	default:
 		out <- &CrawlerResult{
