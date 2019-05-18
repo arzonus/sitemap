@@ -92,8 +92,8 @@ func (w *Walker) walk(ctx context.Context, urlRaw string) (*node.Node, error) {
 	var (
 		crawler = worker.NewCrawler(w.client, ctx, w.maxDepth)
 		parser  = worker.NewParser(ctx)
-		nodes   = make(chan *node.Node, w.workerCount)
-		results = make(chan *worker.CrawlerResult, w.workerCount*5)
+		nodes   = make(chan *node.Node, w.workerCount*w.bufCount)
+		results = make(chan *worker.CrawlerResult, w.workerCount*w.bufCount)
 		done    = make(chan struct{})
 	)
 	defer close(done)
