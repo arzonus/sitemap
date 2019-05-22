@@ -38,8 +38,7 @@ func (w *Parser) Work(in <-chan *CrawlerResult) <-chan *node.Node {
 }
 
 func (w Parser) work(r *CrawlerResult, out chan<- *node.Node) {
-	var p = new(parser)
-	urls, err := p.Parse(r.r)
+	urls, err := Parse(r.r)
 	r.node.SetResult(&node.Result{
 		URLs:  urls,
 		Error: err,
@@ -55,19 +54,20 @@ func (w Parser) work(r *CrawlerResult, out chan<- *node.Node) {
 	}
 }
 
-type parser struct {
-	baseURL string
-	urls    []*url.URL
-}
-
-func (p *parser) Parse(r io.Reader) ([]*url.URL, error) {
+func Parse(r io.Reader) ([]*url.URL, error) {
 	n, err := html.Parse(r)
 	if err != nil {
 		return nil, err
 	}
 
+	var p parser
 	p.parse(n)
 	return p.urls, nil
+}
+
+type parser struct {
+	baseURL string
+	urls    []*url.URL
 }
 
 func (p *parser) parse(n *html.Node) {
