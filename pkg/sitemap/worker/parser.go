@@ -38,8 +38,8 @@ func (w *Parser) Work(in <-chan *CrawlerResult) <-chan *node.Node {
 }
 
 func (w Parser) work(r *CrawlerResult, out chan<- *node.Node) {
-
-	urls, err := w.parse(r.r)
+	var p = new(parser)
+	urls, err := p.Parse(r.r)
 	r.node.SetResult(&node.Result{
 		URLs:  urls,
 		Error: err,
@@ -55,58 +55,78 @@ func (w Parser) work(r *CrawlerResult, out chan<- *node.Node) {
 	}
 }
 
-// parse provides method for getting urls from html site
-func (w Parser) parse(r io.Reader) ([]*url.URL, error) {
+type parser struct {
+	baseURL string
+	urls    []*url.URL
+}
+
+func (p *parser) Parse(r io.Reader) ([]*url.URL, error) {
 	n, err := html.Parse(r)
 	if err != nil {
 		return nil, err
 	}
 
-	var (
-		f       func(*html.Node)
-		urls    []*url.URL
-		baseUrl string
-	)
+	p.parse(n)
+	return p.urls, nil
+}
 
-	f = func(n *html.Node) {
-		// searching base element
-		if n.Type == html.ElementNode && n.Data == "base" {
-			for _, attr := range n.Attr {
-				if attr.Key == "href" {
-					u, err := url.Parse(attr.Val)
-					if err != nil || !(u.IsAbs() && u.Hostname() != "") {
-						return
-					}
-
-					baseUrl = attr.Val
-				}
-			}
-		}
-		// searching a element
-		if n.Type == html.ElementNode && n.Data == "a" {
-			for _, attr := range n.Attr {
-				if attr.Key == "href" {
-					var val = attr.Val
-
-					if baseUrl != "" {
-						val = baseUrl + val
-					}
-
-					u, err := url.Parse(val)
-					if err != nil || !(u.IsAbs() && u.Hostname() != "") {
-						return
-					}
-					urls = append(urls, u)
-					return
-				}
-			}
-		}
-
-		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			f(c)
+func (p *parser) parse(n *html.Node) {
+	if n.Type == html.ElementNode {
+		switch n.Data {
+		case "a":
+			p.parseATag(n)
+		case "base":
+			p.parseBaseTag(n)
 		}
 	}
-	f(n)
 
-	return urls, nil
+	for c := n.FirstChild; c != nil; c = c.NextSibling {
+		p.parse(c)
+	}
+}
+
+func (p *parser) parseBaseTag(n *html.Node) {
+	for _, attr := range n.Attr {
+		if attr.Key == "href" {
+			u, err := url.Parse(attr.Val)
+			if err != nil || !(u.IsAbs() && u.Hostname() != "") {
+				return
+			}
+
+			p.baseURL = attr.Val
+		}
+	}
+}
+
+func (p *parser) parseATag(n *html.Node) {
+	for _, attr := range n.Attr {
+		if attr.Key == "href" {
+			u, err := url.Parse(attr.Val)
+			if err != nil {
+				return
+			}
+
+			if u.IsAbs() && u.Hostname() != "" {
+				p.urls = append(p.urls, u)
+				return
+			}
+
+			if p.baseURL == "" {
+				return
+			}
+
+			// if u is not abs, but baseURL is not empty
+			u, err = url.Parse(p.baseURL + attr.Val)
+			if err != nil {
+				return
+			}
+
+			if !(u.IsAbs() && u.Hostname() != "") {
+
+				return
+			}
+
+			p.urls = append(p.urls, u)
+		}
+	}
 }
