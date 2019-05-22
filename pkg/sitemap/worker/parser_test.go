@@ -92,6 +92,24 @@ func TestParse(t *testing.T) {
 				newURL(t, "https://facebook.com"),
 			},
 		},
+		{
+			Name:     "empty base url, uri",
+			Reader:   NewHTML("", "img.img"),
+			ExpError: nil,
+			ExpURLs:  nil,
+		},
+		//{
+		//	Name:     "javascript void",
+		//	Reader:   NewHTML("http://vk.com/", "javascript:void(8)"),
+		//	ExpError: nil,
+		//	ExpURLs:  nil,
+		//},
+		//{
+		//	Name:     "err url",
+		//	Reader:   NewHTML("http://vk.com/", "/.>"),
+		//	ExpError: nil,
+		//	ExpURLs:  nil,
+		//},
 	}
 
 	for _, c := range cases {

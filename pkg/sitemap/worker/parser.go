@@ -121,8 +121,7 @@ func (p *parser) parseATag(n *html.Node) {
 				return
 			}
 
-			if !(u.IsAbs() && u.Hostname() != "") {
-
+			if u.Hostname() == "" || !u.IsAbs() {
 				return
 			}
 
