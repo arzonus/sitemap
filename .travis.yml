@@ -3,11 +3,19 @@ language: go
 go:
   - 1.11
   - 1.12
+  - release
+
+env:
+  - GO111MODULE=on
+  - GOFLAGS='-mod vendor'
+
+git:
+  depth: 1
 
 install:
-  - "go get golang.org/x/tools/cmd/cover"
   - "go get github.com/mattn/goveralls"
 
 script:
-  - go test -v -covermode=count -coverprofile=coverage.out .
-  - $HOME/gopath/bin/goveralls -coverprofile=coverage.out -service=travis-ci -repotoken $COVERALLS_TOKEN
+  - go test -v -race ./...
+  - COVERALLS_TOKEN=5TCfaWdApdJpouGNqmQm7HRhttWXyDH2D $GOPATH/bin/goveralls -service=travis-ci
+  - GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o sitemap cmd/sitemap/main.go
