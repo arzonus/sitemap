@@ -1,7 +1,6 @@
 package worker
 
 import (
-	"fmt"
 	"github.com/stretchr/testify/assert"
 	"io"
 	"net/url"
@@ -25,8 +24,8 @@ func newHead(baseURL string) string {
 	var str = `
 		<head>`
 	if baseURL != "" {
-		str += fmt.Sprintf(`
-			<base href="%s">`, baseURL)
+		str += `
+			<base href="` + baseURL + `">`
 	}
 	str += `
 		</head>`
@@ -37,8 +36,8 @@ func newBody(urls []string) string {
 	var str = `
 		<body>`
 	for _, url := range urls {
-		str += fmt.Sprintf(`
-			<p><a href="%s">%s</a></p>`, url, url)
+		str += `
+			<p><a href="` + url + `">` + url + `</a></p>`
 	}
 	str += `
 		</body>`
@@ -98,18 +97,32 @@ func TestParse(t *testing.T) {
 			ExpError: nil,
 			ExpURLs:  nil,
 		},
-		//{
-		//	Name:     "javascript void",
-		//	Reader:   NewHTML("http://vk.com/", "javascript:void(8)"),
-		//	ExpError: nil,
-		//	ExpURLs:  nil,
-		//},
-		//{
-		//	Name:     "err url",
-		//	Reader:   NewHTML("http://vk.com/", "/.>"),
-		//	ExpError: nil,
-		//	ExpURLs:  nil,
-		//},
+		{
+			Name:     "wrong baseURL",
+			Reader:   NewHTML("http:///vk.com/", "##", "https://facebook.com"),
+			ExpError: nil,
+			ExpURLs: []*url.URL{
+				newURL(t, "https://facebook.com"),
+			},
+		},
+		{
+			Name:     "wrong url",
+			Reader:   NewHTML("", "javascript:void(8)"),
+			ExpError: nil,
+			ExpURLs:  nil,
+		},
+		{
+			Name:     "wrong url",
+			Reader:   NewHTML("", "http://[fe80::%31]:8080"),
+			ExpError: nil,
+			ExpURLs:  nil,
+		},
+		{
+			Name:     "ftp schema",
+			Reader:   NewHTML("", "ftp://vk.com"),
+			ExpError: nil,
+			ExpURLs:  nil,
+		},
 	}
 
 	for _, c := range cases {

@@ -89,7 +89,7 @@ func (p *parser) parseBaseTag(n *html.Node) {
 	for _, attr := range n.Attr {
 		if attr.Key == "href" {
 			u, err := url.Parse(attr.Val)
-			if err != nil || !(u.IsAbs() && u.Hostname() != "") {
+			if err != nil || !validURL(u) {
 				return
 			}
 
@@ -106,7 +106,7 @@ func (p *parser) parseATag(n *html.Node) {
 				return
 			}
 
-			if u.IsAbs() && u.Hostname() != "" {
+			if validURL(u) {
 				p.urls = append(p.urls, u)
 				return
 			}
@@ -117,15 +117,17 @@ func (p *parser) parseATag(n *html.Node) {
 
 			// if u is not abs, but baseURL is not empty
 			u, err = url.Parse(p.baseURL + attr.Val)
-			if err != nil {
-				return
-			}
-
-			if u.Hostname() == "" || !u.IsAbs() {
+			if err != nil || !validURL(u) {
 				return
 			}
 
 			p.urls = append(p.urls, u)
 		}
 	}
+}
+
+func validURL(u *url.URL) bool {
+	return u.IsAbs() &&
+		u.Hostname() != "" &&
+		(u.Scheme == "http" || u.Scheme == "https")
 }
