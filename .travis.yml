@@ -1,13 +1,10 @@
 language: go
 
 go:
-  - 1.11
   - 1.12
-  - release
 
 env:
-  - GO111MODULE=on
-  - GOFLAGS='-mod vendor'
+  - GO111MODULE=on GOFLAGS='-mod vendor'
 
 git:
   depth: 1
