@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/arzonus/sitemap.svg?branch=master)](https://travis-ci.org/arzonus/sitemap)
+[![Coverage Status](https://coveralls.io/repos/github/arzonus/sitemap/badge.svg?branch=master)](https://coveralls.io/github/arzonus/sitemap?branch=master)
 # SiteMap
 SiteMap is application for scanning sites and building site map. 
 It creates map of urls on site and subsites.. 
@@ -5,7 +7,7 @@ It creates map of urls on site and subsites..
 # Install
 `go get -u github.com/arzonus/sitemap/cmd/sitemap`
 
-# Run
+# Usage
 After installation you can use the app
 
 ```
